@@ -6,9 +6,11 @@ operation VQEEnergy(
     numQubits : Int,
     J : Double,
     h : Double,
+    reps : Int,
+    periodic : Bool,
     shotsPerTerm : Int
 ) : Double {
-    let terms = GenerateTFIMHamiltonian(numQubits, J, h);
+    let terms = GenerateTFIMHamiltonian(numQubits, J, h, periodic);
     return EstimateEnergy(
-        VQE.Ansatz.RealAmplitudesAnsatz(theta, _), numQubits, terms, shotsPerTerm);
+        VQE.Ansatz.RealAmplitudesAnsatz(theta, _, reps), numQubits, terms, shotsPerTerm);
 }

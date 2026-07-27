@@ -9,24 +9,18 @@ namespace VQE.Ansatz {
     ) : Unit is Adj + Ctl {
 
         let n = Length(qubits);
-        mutable thetaIndex = 0;
-        
-        for rep in 1 .. reps{ 
-             // Rotation layer
+
+        for rep in 0 .. reps - 1 {
+
+            // rotation layer, one tunable angle per qubit
             for i in 0 .. n - 1 {
-
-                Ry(theta[thetaIndex], qubits[i]);
-
-                set thetaIndex += 1;
+                Ry(theta[rep * n + i], qubits[i]);
             }
 
-            // Linear entanglement
+            // entanglement layer, links each qubit to the next
             for i in 0 .. n - 2 {
-
                 CNOT(qubits[i], qubits[i + 1]);
-
             }
-        
         }
     }
 }
