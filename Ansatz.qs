@@ -4,7 +4,7 @@ namespace VQE.Ansatz {
 
     operation RealAmplitudesAnsatz(
         theta : Double[],
-        qubits : Qubit[]
+        qubits : Qubit[],
         reps : Int
     ) : Unit is Adj + Ctl {
 
