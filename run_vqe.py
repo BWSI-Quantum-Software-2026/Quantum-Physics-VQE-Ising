@@ -28,10 +28,8 @@ def energy(theta, n, J, h, shots):
     return qs.eval(f"VQEEnergy([{angles}], {n}, {J}, {h}, {shots})")
 
 
-def run_vqe(n, J=1.0, h=1.0, shots=8000, maxiter=300, seed=0):
-    # scipy picks angles, Q# scores them, repeat until the energy stops dropping
-    rng = np.random.default_rng(seed)
-    start = rng.uniform(0, 2 * np.pi, 2 * n)
+def one_run(n, J, h, shots, maxiter, start, check_shots):
+    # scipy picks angles then we have Q# to score them, finally repeat until the energy stops dropping
     history = []
 
     def objective(theta):
@@ -41,7 +39,23 @@ def run_vqe(n, J=1.0, h=1.0, shots=8000, maxiter=300, seed=0):
 
     result = minimize(objective, start, method="COBYLA",
                       options={"maxiter": maxiter})
-    return result.fun, result.x, history
+
+    # the best sample seen is biased low by noise, so remeasure the final angles
+    return energy(result.x, n, J, h, check_shots), result.x, history
+
+
+def run_vqe(n, J=1.0, h=1.0, shots=4000, maxiter=300, seed=0,
+            restarts=5, check_shots=20000, final_shots=100000):
+    # COBYLA can settle in a local minimum, so we try several random starts
+    rng = np.random.default_rng(seed)
+    runs = [one_run(n, J, h, shots, maxiter,
+                    rng.uniform(0, 2 * np.pi, 2 * n), check_shots)
+            for _ in range(restarts)]
+
+    _, theta, history = min(runs, key=lambda r: r[0])
+
+    # measure the winner once more so the reported number is not the pick of a batch
+    return energy(theta, n, J, h, final_shots), theta, history
 
 
 def at(op, i, n):
