@@ -1,0 +1,6 @@
+qdk==1.30.0
+numpy
+scipy
+matplotlib
+pytest
+jupyter
