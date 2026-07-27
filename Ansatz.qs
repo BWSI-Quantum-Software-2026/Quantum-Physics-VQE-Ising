@@ -5,30 +5,28 @@ namespace VQE.Ansatz {
     operation RealAmplitudesAnsatz(
         theta : Double[],
         qubits : Qubit[]
+        reps : Int
     ) : Unit is Adj + Ctl {
 
         let n = Length(qubits);
-       
-        // First Rotation Layer
-        for i in 0 .. n - 1 {
-            Ry(theta[i], qubits[i]);
-        }
-
-        // Linear Entanglement Layer       
-        for i in 0 .. n - 2 {
-            CNOT(qubits[i], qubits[i + 1]);
-        }
+        mutable thetaIndex = 0;
         
-        // Second Rotation Layer
-        let offset = n;
+        for rep in 1 .. reps{ 
+             // Rotation layer
+            for i in 0 .. n - 1 {
 
-        for i in 0 .. n - 1 {
-            Ry(theta[offset + i], qubits[i]);
-        }
+                Ry(theta[thetaIndex], qubits[i]);
+
+                set thetaIndex += 1;
+            }
+
+            // Linear entanglement
+            for i in 0 .. n - 2 {
+
+                CNOT(qubits[i], qubits[i + 1]);
+
+            }
         
-        // Second Entanglement Layer
-        for i in 0 .. n - 2 {
-            CNOT(qubits[i], qubits[i + 1]);
         }
     }
 }
