@@ -57,7 +57,6 @@ def one_run(n, J, h, reps, periodic, shots, maxiter, start, check_shots,
     def objective(theta):
         value = energy(theta, n, J, h, reps, periodic, shots)
         history.append(value)
-        print(len(history), value)
         return value
 
     if method == "NFT":
@@ -108,7 +107,7 @@ def tfim_matrix(n, J, h, periodic=False):
 if __name__ == "__main__":
     load_qsharp()
 
-    print(f"{'n':>2} {'VQE':>9} {'exact':>9} {'error':>8} {'evals':>6}")
+    print(f"{'n':>2} {'VQE':>9} {'exact':>9} {'error':>8} {'per site':>9} {'evals':>6}")
 
     # store results for graphs
     n_values = []
@@ -118,9 +117,11 @@ if __name__ == "__main__":
     eval_counts = []
 
     for n in (2, 3, 4):
-        best, theta, history = run_vqe(n)
+        best, theta, history = run_vqe(n, method="NFT")
         floor = exact_ground_energy(tfim_matrix(n, 1.0, 1.0))
-        print(f"{n:>2} {best:>9.4f} {floor:>9.4f} {abs(best - floor):>8.4f} {len(history):>6}")
+        # energy grows with the chain, so the per site error is the fair one
+        print(f"{n:>2} {best:>9.4f} {floor:>9.4f} {abs(best - floor):>8.4f} "
+              f"{abs(best - floor) / n:>9.4f} {len(history):>6}")
 
         #save values for graphs
         n_values.append(n)
@@ -157,12 +158,13 @@ if __name__ == "__main__":
             va="bottom"
         )
 
+        # keep this one on the left so it does not sit on top of the label above
         plt.text(
-            len(history),
+            1,
             floor,
             f"Exact = {floor:.4f}",
             fontsize=9,
-            ha="right",
+            ha="left",
             va="top",
             color="red"
         )
@@ -178,4 +180,5 @@ if __name__ == "__main__":
 
         plt.savefig(f"convergence_n{n}.png", dpi=300)
 
-        plt.show()
+        # no plt.show, the window blocks the run and the file is already saved
+        plt.close()
