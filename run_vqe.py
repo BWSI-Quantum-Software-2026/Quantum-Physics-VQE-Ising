@@ -29,8 +29,28 @@ def energy(theta, n, J, h, reps, periodic, shots):
     return qs.eval(f"VQEEnergy([{angles}], {n}, {J}, {h}, {reps}, {flag}, {shots})")
 
 
-def one_run(n, J, h, reps, periodic, shots, maxiter, start, check_shots):
-    # scipy picks angles then we have Q# to score them, finally repeat until the energy stops dropping
+def nft(objective, start, maxiter):
+    # with only Ry gates the energy is an exact sine wave in each angle,
+    # so three measurements pin that wave down and we jump to its minimum
+    theta = [float(t) for t in start]
+    sweeps = max(1, maxiter // (3 * len(theta)))
+
+    for _ in range(sweeps):
+        for d in range(len(theta)):
+            theta[d] = 0.0
+            m0 = objective(theta)
+            theta[d] = np.pi / 2
+            mp = objective(theta)
+            theta[d] = -np.pi / 2
+            mm = objective(theta)
+            theta[d] = -np.pi / 2 - np.arctan2(2 * m0 - mp - mm, mp - mm)
+
+    return np.array(theta)
+
+
+def one_run(n, J, h, reps, periodic, shots, maxiter, start, check_shots,
+            method="COBYLA"):
+    # the optimizer picks angles then we have Q# to score them, repeat until the energy stops dropping
     history = []
 
     def objective(theta):
@@ -38,19 +58,23 @@ def one_run(n, J, h, reps, periodic, shots, maxiter, start, check_shots):
         history.append(value)
         return value
 
-    result = minimize(objective, start, method="COBYLA",
-                      options={"maxiter": maxiter})
+    if method == "NFT":
+        best = nft(objective, start, maxiter)
+    else:
+        best = minimize(objective, start, method=method,
+                        options={"maxiter": maxiter}).x
 
     # the best sample seen is biased low by noise, so remeasure the final angles
-    return energy(result.x, n, J, h, reps, periodic, check_shots), result.x, history
+    return energy(best, n, J, h, reps, periodic, check_shots), best, history
 
 
 def run_vqe(n, J=1.0, h=1.0, reps=2, periodic=False, shots=4000, maxiter=300,
-            seed=0, restarts=5, check_shots=20000, final_shots=100000):
-    # COBYLA can settle in a local minimum, so we try several random starts
+            seed=0, restarts=5, check_shots=20000, final_shots=100000,
+            method="COBYLA"):
+    # the optimizer can settle in a local minimum, so we try several random starts
     rng = np.random.default_rng(seed)
     runs = [one_run(n, J, h, reps, periodic, shots, maxiter,
-                    rng.uniform(0, 2 * np.pi, reps * n), check_shots)
+                    rng.uniform(0, 2 * np.pi, reps * n), check_shots, method)
             for _ in range(restarts)]
 
     _, theta, history = min(runs, key=lambda r: r[0])
