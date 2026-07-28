@@ -46,8 +46,9 @@ if __name__ == "__main__":
     for name in ("Ansatz.qs", "Hamiltonian.qs", "VQE.qs"):
         load_qsharp(name)
 
-    # measure the real VQE circuit at a few system sizes
+    # measure the real VQE circuit at a few sizes and ansatz depths
     for n in (2, 3, 4):
-        theta = ", ".join(["0.5"] * (2 * n))
-        print_estimate(f"VQEEnergy([{theta}], {n}, 1.0, 1.0, 1)")
-        print()
+        for reps in (1, 2, 3):
+            theta = ", ".join(["0.5"] * (reps * n))
+            print_estimate(f"VQEEnergy([{theta}], {n}, 1.0, 1.0, {reps}, false, 1)")
+            print()

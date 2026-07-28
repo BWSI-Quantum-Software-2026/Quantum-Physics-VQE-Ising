@@ -23,18 +23,19 @@ def load_qsharp():
         qs.eval((folder / name).read_text(encoding="utf-8"))
 
 
-def energy(theta, n, J, h, shots):
+def energy(theta, n, J, h, reps, periodic, shots):
     # ask Q# for the energy of the state these angles build
     angles = ", ".join(str(float(t)) for t in theta)
-    return qs.eval(f"VQEEnergy([{angles}], {n}, {J}, {h}, {shots})")
+    flag = "true" if periodic else "false"
+    return qs.eval(f"VQEEnergy([{angles}], {n}, {J}, {h}, {reps}, {flag}, {shots})")
 
 
-def one_run(n, J, h, shots, maxiter, start, check_shots):
+def one_run(n, J, h, reps, periodic, shots, maxiter, start, check_shots):
     # scipy picks angles then we have Q# to score them, finally repeat until the energy stops dropping
     history = []
 
     def objective(theta):
-        value = energy(theta, n, J, h, shots)
+        value = energy(theta, n, J, h, reps, periodic, shots)
         history.append(value)
         print(len(history), value)
         return value
@@ -43,21 +44,21 @@ def one_run(n, J, h, shots, maxiter, start, check_shots):
                       options={"maxiter": maxiter})
 
     # the best sample seen is biased low by noise, so remeasure the final angles
-    return energy(result.x, n, J, h, check_shots), result.x, history
+    return energy(result.x, n, J, h, reps, periodic, check_shots), result.x, history
 
 
-def run_vqe(n, J=1.0, h=1.0, shots=4000, maxiter=300, seed=0,
-            restarts=5, check_shots=20000, final_shots=100000):
+def run_vqe(n, J=1.0, h=1.0, reps=2, periodic=False, shots=4000, maxiter=300,
+            seed=0, restarts=5, check_shots=20000, final_shots=100000):
     # COBYLA can settle in a local minimum, so we try several random starts
     rng = np.random.default_rng(seed)
-    runs = [one_run(n, J, h, shots, maxiter,
-                    rng.uniform(0, 2 * np.pi, 2 * n), check_shots)
+    runs = [one_run(n, J, h, reps, periodic, shots, maxiter,
+                    rng.uniform(0, 2 * np.pi, reps * n), check_shots)
             for _ in range(restarts)]
 
     _, theta, history = min(runs, key=lambda r: r[0])
 
     # measure the winner once more so the reported number is not the pick of a batch
-    return energy(theta, n, J, h, final_shots), theta, history
+    return energy(theta, n, J, h, reps, periodic, final_shots), theta, history
 
 
 def at(op, i, n):
@@ -68,11 +69,13 @@ def at(op, i, n):
     return m
 
 
-def tfim_matrix(n, J, h):
+def tfim_matrix(n, J, h, periodic=False):
     # same Hamiltonian as Hamiltonian.qs but as a numpy matrix
     H = np.zeros((2 ** n, 2 ** n), dtype=complex)
     for i in range(n - 1):
         H += -J * (at(Z, i, n) @ at(Z, i + 1, n))
+    if periodic and n > 2:
+        H += -J * (at(Z, n - 1, n) @ at(Z, 0, n))
     for i in range(n):
         H += -h * at(X, i, n)
     return H
