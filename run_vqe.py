@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 import qdk.qsharp as qs
 from scipy.optimize import minimize
+import matplotlib.pyplot as plt
 
 from exact import exact_ground_energy
 
@@ -56,6 +57,7 @@ def one_run(n, J, h, reps, periodic, shots, maxiter, start, check_shots,
     def objective(theta):
         value = energy(theta, n, J, h, reps, periodic, shots)
         history.append(value)
+        print(len(history), value)
         return value
 
     if method == "NFT":
@@ -107,7 +109,73 @@ if __name__ == "__main__":
     load_qsharp()
 
     print(f"{'n':>2} {'VQE':>9} {'exact':>9} {'error':>8} {'evals':>6}")
-    for n in (2, 3):
+
+    # store results for graphs
+    n_values = []
+    vqe_values = []
+    exact_values = []
+    errors = []
+    eval_counts = []
+
+    for n in (2, 3, 4):
         best, theta, history = run_vqe(n)
         floor = exact_ground_energy(tfim_matrix(n, 1.0, 1.0))
         print(f"{n:>2} {best:>9.4f} {floor:>9.4f} {abs(best - floor):>8.4f} {len(history):>6}")
+
+        #save values for graphs
+        n_values.append(n)
+        vqe_values.append(best)
+        exact_values.append(floor)
+        errors.append(abs(best-floor))
+        eval_counts.append(len(history))
+
+        # ---------- Convergence Plot ----------
+        plt.figure(figsize=(7,5))
+
+        plt.plot(
+            range(1, len(history)+1),
+            history,
+            marker='o',
+            linewidth=2,
+            label="VQE Energy"
+        )
+
+        plt.axhline(
+            y=floor,
+            color='red',
+            linestyle='--',
+            linewidth=2,
+            label="Exact Energy"
+        )
+
+        plt.text(
+            len(history),
+            history[-1],
+            f"Final = {history[-1]:.4f}",
+            fontsize=9,
+            ha="right",
+            va="bottom"
+        )
+
+        plt.text(
+            len(history),
+            floor,
+            f"Exact = {floor:.4f}",
+            fontsize=9,
+            ha="right",
+            va="top",
+            color="red"
+        )
+
+        plt.xlabel("Optimization Iteration")
+        plt.ylabel("Energy")
+        plt.title(f"VQE Convergence (n={n})")
+
+        plt.legend()
+        plt.grid(True)
+
+        plt.tight_layout()
+
+        plt.savefig(f"convergence_n{n}.png", dpi=300)
+
+        plt.show()
