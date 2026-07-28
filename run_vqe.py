@@ -182,3 +182,133 @@ if __name__ == "__main__":
 
         # no plt.show, the window blocks the run and the file is already saved
         plt.close()
+
+    # ----------------------------------------------------------
+    # VQE vs Exact (Line)
+    # ----------------------------------------------------------
+
+    plt.figure(figsize=(7,5))
+
+    plt.plot(
+        n_values,
+        vqe_values,
+        marker="o",
+        linewidth=2,
+        label="VQE"
+    )
+
+    plt.plot(
+        n_values,
+        exact_values,
+        marker="s",
+        linewidth=2,
+        label="Exact"
+    )
+
+    # Label VQE points
+    for x, y in zip(n_values, vqe_values):
+        plt.text(
+            x,
+            y,
+            f"{y:.4f}",
+            fontsize=9,
+            ha="center",
+            va="bottom"
+        )
+
+    # Label Exact points
+    for x, y in zip(n_values, exact_values):
+        plt.text(
+            x,
+            y,
+            f"{y:.4f}",
+            fontsize=9,
+            ha="center",
+            va="top"
+        )
+
+    plt.xlabel("Number of Qubits")
+    plt.ylabel("Ground-State Energy")
+    plt.title("VQE vs Exact")
+
+    plt.grid(True)
+    plt.legend()
+
+    plt.tight_layout()
+
+    plt.savefig("vqe_vs_exact_line.png", dpi=300)
+
+    plt.close()
+
+
+    # ----------------------------------------------------------
+    # Error (Log Scale)
+    # ----------------------------------------------------------
+
+    plt.figure(figsize=(7,5))
+
+    plt.plot(
+        n_values,
+        errors,
+        marker="o",
+        linewidth=2
+    )
+
+    for x, y in zip(n_values, errors):
+        plt.text(
+            x,
+            y,
+            f"{y:.2e}",
+            fontsize=9,
+            ha="center",
+            va="bottom"
+        )
+
+    plt.yscale("log")
+
+    plt.xlabel("Number of Qubits")
+    plt.ylabel("Absolute Error")
+    plt.title("Absolute Error (Log Scale)")
+
+    plt.grid(True, which="both")
+
+    plt.tight_layout()
+
+    plt.savefig("error_log.png", dpi=300)
+
+    plt.close()
+
+    # ----------------------------------------------------------
+    # Energy Evaluations
+    # ----------------------------------------------------------
+
+    plt.figure(figsize=(7,5))
+
+    bars = plt.bar(
+        n_values,
+        eval_counts
+    )
+
+    for bar in bars:
+        y = bar.get_height()
+        plt.text(
+            bar.get_x() + bar.get_width()/2,
+            y,
+            f"{int(y)}",
+            fontsize=9,
+            ha="center",
+            va="bottom"
+        )
+
+    plt.xlabel("Number of Qubits")
+    plt.ylabel("Energy Evaluations")
+    plt.title("Number of Energy Evaluations")
+
+    plt.grid(axis="y")
+
+    plt.tight_layout()
+
+    plt.savefig("evaluations.png", dpi=300)
+
+    plt.close()
+
