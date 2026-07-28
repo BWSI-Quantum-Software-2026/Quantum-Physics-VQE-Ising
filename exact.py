@@ -27,6 +27,14 @@ def exact_spectrum(H):
     return np.linalg.eigvalsh(to_matrix(H))
 
 
+def tfim_open_chain_energy(n, J, h):
+    """Ground energy of the open chain without building the 2^n matrix."""
+    # free fermion result, the energy is minus the singular values of this
+    # small n by n matrix, so this stays cheap for hundreds of spins
+    M = np.diag([float(h)] * n) + np.diag([float(J)] * (n - 1), 1)
+    return -float(np.linalg.svd(M, compute_uv=False).sum())
+
+
 if __name__ == "__main__":
     # Build example Hamiltonians as plain numpy matrices
     I = np.eye(2)
