@@ -69,7 +69,7 @@ This file defines the physical system that the Variational Quantum Eigensolver (
 - **`EstimateEnergy(prepareState, numQubits, terms, shotsPerTerm)`** — the core energy-evaluation function: given *any* state-preparation operation, repeatedly prepares the state and measures every Hamiltonian term to estimate `⟨H⟩`.
 - **`PrepareAllZero`** — a trivial reference state used only for verification (its energy is analytically known by hand).
 - **`Main()`** — a demo entry point that builds both the open-chain and periodic-ring Hamiltonians and prints their energies side by side on the reference state.
-- **8 unit tests** (`@Test` + `Fact`): term-count correctness for both boundary conditions, the 2-qubit edge case, wrap-bond correctness, field-term correctness, and — most importantly — energy estimates matching the analytically-known exact value for both boundary conditions (this validates the physics, not just the code structure).
+- **8 unit tests** (`@Test` + `Fact`): term-count correctness for both boundary conditions, the 2-qubit edge case, wrap-bond correctness, field-term correctness, and — most importantly — energy estimates matching the analytically-known exact value for both boundary conditions.
 
 ### `Ansatz.qs` — the parameterized trial-state circuit
 
@@ -97,7 +97,7 @@ VQE is an approximate algorithm, so its results need to be compared against an e
 - **`to_matrix(H)`** — normalizes a Hamiltonian (however it's represented) to a plain NumPy array.
 - **`exact_ground_energy(H)`** — lowest eigenvalue via `np.linalg.eigvalsh`.
 - **`exact_ground_state(H)`** — lowest eigenvalue *and* its eigenvector.
-- **`exact_spectrum(H)`** — the full sorted list of energy levels, not just the ground state.
+- **`exact_spectrum(H)`** — every energy level, sorted from lowest to highest.
 - **`tfim_open_chain_energy(n, J, h)`** — the ground energy of the open chain, computed without building the `2^n` matrix at all. The Transverse-Field Ising chain can be mapped onto a system of non-interacting fermions, and for an open chain the ground energy then works out to minus the sum of the singular values of a small `n` by `n` matrix. This agrees with full diagonalization to machine precision, and because the matrix stays small it remains fast for hundreds of spins. That makes it possible to show how the results behave at system sizes far beyond what the quantum simulation can reach.
 - Includes a runnable self-check (`__main__` block) verifying two known cases by hand: `H = -X` (ground energy `-1`) and the 2-spin Ising Hamiltonian `H = -Z₀Z₁ - X₀ - X₁` (ground energy `-√5 ≈ -2.236`), which is the textbook sanity-check value for this model.
 
@@ -151,7 +151,7 @@ For each configuration it stores the VQE energy, the exact energy, the error, th
 
 ### `sweep_field.py` — sweeping the field to find the phase transition
 
-This file keeps the system size fixed and varies the field strength instead. The Ising model is known for having a phase transition as the field is changed, so sweeping the field is what allows the project to study the physics of the system rather than only computing a single ground-state energy. At each field strength the script optimizes the circuit and then measures the energy along with both observables.
+This file keeps the system size fixed and varies the field strength instead. The Ising model is known for having a phase transition as the field is changed. At each field strength the script optimizes the circuit and then measures the energy along with both observables.
 
 Two choices in this script are worth explaining. The sweep runs downward from a strong field, and each solution is reused as the starting point for the next field value. This is done because the strong-field ground state is easy for the ansatz to represent, so starting there and moving gradually keeps the optimizer close to a good solution throughout. The sweep also uses the periodic ring rather than the open chain, because at four spins an open chain has a large finite-size effect that moves the transition signature far away from where it belongs.
 
@@ -185,13 +185,15 @@ py -3.13 -m venv .venv
 
 ### Accuracy against the classical answer
 
-The VQE energy matches the exact ground-state energy at every system size tested. The total energy grows as spins are added, so the error per site is included as well, since that is the quantity that can be compared fairly across different chain lengths.
+The VQE energy matches the exact ground-state energy at every system size tested. The total energy grows as spins are added, so the error per site is included as well, since that is the quantity that can be compared fairly across different chain lengths. The values below use NFT at two ansatz layers, and come from the saved sweep in `results.json`.
 
 | Spins | VQE | Exact | Error | Error per site |
 |-------|-----|-------|-------|----------------|
-| 2 | -2.2284 | -2.2361 | 0.0077 | 0.0039 |
-| 3 | -3.4832 | -3.4940 | 0.0108 | 0.0036 |
-| 4 | -4.7487 | -4.7588 | 0.0101 | 0.0025 |
+| 2 | -2.2349 | -2.2361 | 0.0012 | 0.0006 |
+| 3 | -3.4960 | -3.4940 | 0.0021 | 0.0007 |
+| 4 | -4.7513 | -4.7588 | 0.0075 | 0.0019 |
+
+The 3-spin value sits slightly below the exact energy. The energy is estimated from a finite number of measurements, so the result is a random quantity centred on the true value, and a difference this small is well within the expected statistical spread. The limitations section below explains why this happens and why it does not contradict the variational principle.
 
 ### The classical optimizer mattered more than the circuit
 
@@ -201,13 +203,35 @@ The actual cause was the optimizer. COBYLA works by building a simple model of t
 
 Replacing COBYLA with NFT removed the problem. Since the ansatz uses only `Ry` gates, the energy is an exact sine wave in each angle, and NFT determines the best value of each angle in closed form from three measurements rather than searching for it. There is no small region for noise to interfere with.
 
-| Spins | COBYLA error | NFT error |
-|-------|--------------|-----------|
-| 2 | 0.0213 | 0.0077 |
-| 3 | 0.0514 | 0.0108 |
-| 4 | 0.1677 | 0.0101 |
+We ran both optimizers at every combination of system size and ansatz depth, so the comparison below covers nine configurations. Times are for the whole run including restarts.
 
-The COBYLA error grows by roughly a factor of eight between two spins and four spins, while the NFT error stays essentially constant. At four spins NFT is about sixteen times more accurate, and it takes a similar amount of time to run.
+| Spins | Layers | NFT error | NFT time | COBYLA error | COBYLA time |
+|-------|--------|-----------|----------|--------------|-------------|
+| 2 | 1 | 0.0031 | 211 s | 0.0188 | 40 s |
+| 2 | 2 | 0.0012 | 269 s | 0.0117 | 65 s |
+| 2 | 3 | 0.0080 | 318 s | 0.0097 | 86 s |
+| 3 | 1 | 0.0135 | 442 s | 0.0117 | 98 s |
+| 3 | 2 | 0.0021 | 568 s | 0.0432 | 170 s |
+| 3 | 3 | 0.0030 | 738 s | 0.0044 | 308 s |
+| 4 | 1 | 0.0337 | 746 s | 0.9934 | 165 s |
+| 4 | 2 | 0.0075 | 1099 s | 0.0765 | 475 s |
+| 4 | 3 | 0.0092 | 1323 s | 0.8888 | 734 s |
+
+NFT is more accurate in eight of the nine configurations. The one exception is the shallowest 3-spin circuit, where the two are effectively tied.
+
+In two of the nine runs, both at four spins, COBYLA finished with an error close to 1.0, meaning it failed to find the ground state. NFT never failed this way, and its worst result across all nine runs was an error of 0.034. An optimizer that occasionally returns a completely wrong answer is harder to work with than one that is consistently a little imprecise, because there is no way to tell from the output alone which kind of run you got.
+
+This accuracy comes at a cost in time. NFT took between two and five times longer than COBYLA, with a median of 568 seconds against 165 seconds. This is expected, since NFT spends three measurements on every parameter in every sweep, while COBYLA stops as soon as its own convergence test is satisfied. Part of the reason COBYLA is faster is that it stops early, which is also the reason it sometimes stops at the wrong answer.
+
+### Finding the phase transition
+
+Sweeping the field from 2.0 down to 0 on a 4-spin ring produces the change of phase directly. The transverse magnetisation falls from 0.919 to 0.000 as the field is removed, and the neighbour correlation rises from 0.294 to 1.000 over the same range. At strong field each spin follows the field independently and neighbouring spins are almost uncorrelated. At weak field the coupling wins and every neighbouring pair is locked together.
+
+The point where the two curves cross is what identifies the transition, and this is where the choice of a ring rather than an open chain matters. The measured crossing is at `h/J = 1.004`, against a true critical point of 1.000.
+
+At `h = J` the periodic Ising chain is self-dual, meaning the model maps onto itself with the coupling and the field exchanged. Because that mapping also exchanges the two quantities we are measuring, they are forced to be equal at exactly `h = J`, for any number of spins. Exact diagonalization confirms this: the crossing sits at 1.0000 for rings of 3, 4, 5, and 6 spins with no drift at all. On an open chain the same crossing is at 0.649, 0.729, 0.780, and 0.815 for those sizes, approaching 1 only slowly, so a 4-spin open chain would have placed the transition around 0.73 and required an explanation for the discrepancy.
+
+The energy error across the sweep averages 0.0115 and is largest near the transition, which is the region where the optimization is hardest.
 
 ### Resource cost on real hardware
 
@@ -219,7 +243,7 @@ The resource estimator reports what would be required to run the circuit on a fa
 | 3 | 4 | 30 | 323,070 |
 | 4 | 5 | 56 | 391,556 |
 
-These numbers are best understood as an illustration of that overhead rather than a prediction of what running VQE would actually cost. The estimator assumes a fault-tolerant machine, whereas VQE is an algorithm designed for near-term hardware that does not have error correction. The T-gate count also depends on a rotation-synthesis precision that we selected, so it is not a fixed property of the circuit.
+These numbers illustrate the scale of that overhead. The estimator assumes a fault-tolerant machine, whereas VQE is an algorithm designed for near-term hardware that does not have error correction. The T-gate count also depends on a rotation-synthesis precision that we selected, so it is not a fixed property of the circuit.
 
 ---
 
