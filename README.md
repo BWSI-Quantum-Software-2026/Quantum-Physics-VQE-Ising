@@ -1,5 +1,11 @@
 # VQE for the Transverse-Field Ising Model — Final Project
 
+### Contributors:
+- Nana Adwoa Fremah Prempeh
+- Matthew Heng
+- Saumil Agarwal
+- Mehpreet Virk
+
 ## What this project is
 
 We implement the **Variational Quantum Eigensolver (VQE)** algorithm in **Q#** (Microsoft QDK) to find the ground-state energy of the **Transverse-Field Ising Model (TFIM)**, a small quantum spin-chain system used to model magnetic materials. We compare multiple versions of the quantum circuit (different ansatz depths, and open vs. periodic boundary conditions) against each other and against the classically-computed exact answer, to see how circuit design choices trade off accuracy against computational resource cost.
